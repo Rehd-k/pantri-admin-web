@@ -16,6 +16,7 @@ const STATUS_TONE: Record<string, Tone> = {
   PENDING: "warning",
   PENDING_APPROVAL: "warning",
   PENDING_REVIEW: "warning",
+  DRAFT: "warning",
   GENERATING: "info",
   PROCESSING: "info",
   FROZEN: "danger",

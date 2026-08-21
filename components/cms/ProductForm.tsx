@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
-import { koboToNairaInput, nairaToKobo } from "@/lib/format";
+import { koboToNairaInput, nairaToKobo, unitSizeLabel } from "@/lib/format";
 import type {
   CreateProductInput,
   CreateProductPackInput,
@@ -96,6 +97,7 @@ export function ProductForm({ productId }: { productId?: string }) {
     categoryId: "",
     subcategoryId: "",
     measureFamilyId: "",
+    recipeUnitId: "",
     name: "",
     slug: "",
     imageUrl: "",
@@ -120,6 +122,25 @@ export function ProductForm({ productId }: { productId?: string }) {
   const purchaseUnits = useMemo(
     () => units.filter((unit) => unit.isPurchaseUnit && unit.isActive),
     [units],
+  );
+
+  const selectedFamily = useMemo(
+    () => families.find((family) => family.id === form.measureFamilyId) ?? null,
+    [families, form.measureFamilyId],
+  );
+
+  const recipeUnits = useMemo(() => {
+    return units.filter((unit) => {
+      if (!unit.isRecipeUnit) return false;
+      if (!unit.isActive && unit.id !== form.recipeUnitId) return false;
+      if (selectedFamily && unit.dimension !== selectedFamily.dimension) return false;
+      return true;
+    });
+  }, [units, selectedFamily, form.recipeUnitId]);
+
+  const selectedRecipeUnit = useMemo(
+    () => recipeUnits.find((unit) => unit.id === form.recipeUnitId) ?? null,
+    [recipeUnits, form.recipeUnitId],
   );
 
   useEffect(() => {
@@ -150,6 +171,7 @@ export function ProductForm({ productId }: { productId?: string }) {
             categoryId: match.categoryId,
             subcategoryId: match.subcategoryId,
             measureFamilyId: match.measureFamilyId,
+            recipeUnitId: match.recipeUnitId ?? match.measureFamily.defaultRecipeUnitId ?? "",
             name: match.name,
             slug: match.slug,
             imageUrl: match.imageUrl,
@@ -252,6 +274,7 @@ export function ProductForm({ productId }: { productId?: string }) {
       categoryId: form.categoryId,
       subcategoryId: form.subcategoryId,
       measureFamilyId: form.measureFamilyId,
+      recipeUnitId: form.recipeUnitId || null,
       name: form.name.trim(),
       slug: form.slug.trim() || undefined,
       imageUrl: form.imageUrl.trim(),
@@ -360,7 +383,15 @@ export function ProductForm({ productId }: { productId?: string }) {
               <Select
                 required
                 value={form.measureFamilyId}
-                onChange={(e) => setForm((prev) => ({ ...prev, measureFamilyId: e.target.value }))}
+                onChange={(e) => {
+                  const familyId = e.target.value;
+                  const family = families.find((row) => row.id === familyId);
+                  setForm((prev) => ({
+                    ...prev,
+                    measureFamilyId: familyId,
+                    recipeUnitId: family?.defaultRecipeUnitId ?? "",
+                  }));
+                }}
               >
                 <option value="">Select family</option>
                 {families.map((family) => (
@@ -370,6 +401,28 @@ export function ProductForm({ productId }: { productId?: string }) {
                 ))}
               </Select>
             </Field>
+            <div>
+              <Field
+                label="Household unit"
+                hint={selectedRecipeUnit ? unitSizeLabel(selectedRecipeUnit) : "How many cups in a kg, or pours in a litre"}
+              >
+                <Select
+                  required
+                  value={form.recipeUnitId}
+                  onChange={(e) => setForm((prev) => ({ ...prev, recipeUnitId: e.target.value }))}
+                >
+                  <option value="">Select unit</option>
+                  {recipeUnits.map((unit) => (
+                    <option key={unit.id} value={unit.id}>
+                      {unit.name} ({unit.shortLabel})
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Link href="/marketplace/measures" className="mt-1 inline-block text-xs font-medium text-indigo-600">
+                Manage units
+              </Link>
+            </div>
             <Field label="Name">
               <Input
                 required

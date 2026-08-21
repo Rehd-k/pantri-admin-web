@@ -1,26 +1,29 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import { api, ApiError } from "@/lib/api";
-import type { MealPlanDetail } from "@/lib/types";
-import { Card, CardBody, CardHeader } from "@/components/ui/Card";
+import type { AiProviderChoice, MealPlanDay, MealPlanDetail } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { Field, Textarea } from "@/components/ui/Input";
+import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { ErrorBanner, Spinner, SuccessBanner } from "@/components/ui/Feedback";
-import { formatDateTime } from "@/lib/format";
+import { CompletenessBar } from "@/components/meal-plans/CompletenessBar";
+import { AiProviderMenu } from "@/components/meal-plans/AiProviderMenu";
+import { SlotEditor } from "@/components/meal-plans/SlotEditor";
+import { slotItem, WeekGrid } from "@/components/meal-plans/WeekGrid";
 
-export default function MealPlanDetailPage() {
+export default function MealPlanBuilderPage() {
   const params = useParams<{ id: string }>();
-  const router = useRouter();
   const [plan, setPlan] = useState<MealPlanDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [adminNote, setAdminNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [provider, setProvider] = useState<AiProviderChoice>("auto");
+  const [weekStart, setWeekStart] = useState(0);
+  const [selected, setSelected] = useState<{ dayId: string; slot: string } | null>(null);
 
   async function load() {
     setLoading(true);
@@ -28,7 +31,6 @@ export default function MealPlanDetailPage() {
     try {
       const data = await api.get<MealPlanDetail>(`/admin/meal-plans/${params.id}`);
       setPlan(data);
-      setAdminNote(data.adminNote ?? "");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to load meal plan.");
     } finally {
@@ -38,28 +40,56 @@ export default function MealPlanDetailPage() {
 
   useEffect(() => {
     void load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
 
-  async function handleDecision(decision: "approve" | "reject") {
+  const selectedDay = useMemo(() => {
+    if (!plan || !selected) return null;
+    return plan.days.find((day) => day.id === selected.dayId) ?? null;
+  }, [plan, selected]);
+
+  const selectedItem = selectedDay && selected ? slotItem(selectedDay, selected.slot) : undefined;
+  const editable = plan?.status === "DRAFT" || plan?.status === "PENDING_REVIEW";
+
+  function selectSlot(day: MealPlanDay, slot: string) {
+    setSelected({ dayId: day.id, slot });
+  }
+
+  async function generateWeek(replaceExisting: boolean) {
+    if (!plan) return;
+    if (
+      replaceExisting &&
+      !window.confirm("Replace meals that are already on the calendar?")
+    ) {
+      return;
+    }
     setBusy(true);
     setError(null);
     setSuccess(null);
     try {
-      const updated = await api.post<MealPlanDetail>(`/admin/meal-plans/${params.id}/${decision}`, {
-        adminNote: adminNote.trim() || undefined,
+      const updated = await api.post<MealPlanDetail>(`/admin/meal-plans/${plan.id}/ai/generate`, {
+        provider,
+        replaceExisting,
       });
       setPlan(updated);
-      setSuccess(
-        decision === "approve"
-          ? "Approved. A private AI pantry package was created for the employee."
-          : "Meal plan rejected.",
-      );
-      if (decision === "approve") {
-        router.refresh();
-      }
+      setSuccess("AI filled the week. Review meals and directions before publishing.");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Action failed.");
+      setError(err instanceof ApiError ? err.message : "AI could not generate this plan.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function publish() {
+    if (!plan) return;
+    setBusy(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const updated = await api.post<MealPlanDetail>(`/admin/meal-plans/${plan.id}/publish`, {});
+      setPlan(updated);
+      setSuccess("Published. The employee can now cook from this plan.");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not publish this plan.");
     } finally {
       setBusy(false);
     }
@@ -77,106 +107,178 @@ export default function MealPlanDetailPage() {
     return <ErrorBanner message={error ?? "Meal plan not found."} />;
   }
 
+  const missing = plan.completeness.missing.slice(0, 4);
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <Link href="/meal-plans" className="text-sm text-indigo-600 hover:underline">
             ← Back to queue
           </Link>
-          <h1 className="mt-2 text-2xl font-semibold text-slate-900">{plan.title}</h1>
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-semibold text-slate-900">{plan.title}</h1>
+            <Badge>{plan.status}</Badge>
+            <Badge tone="info">{plan.source}</Badge>
+          </div>
           <p className="mt-1 text-sm text-slate-500">
-            {plan.employeeName} · {plan.employerName} · {formatDateTime(plan.createdAt)}
+            {plan.employeeName} · {plan.employerName}
+            {plan.startsOn && plan.endsOn ? ` · ${plan.startsOn} to ${plan.endsOn}` : ""}
           </p>
         </div>
-        <Badge>{plan.status}</Badge>
+        <div className="flex flex-wrap items-center gap-2">
+          <AiProviderMenu value={provider} onChange={setProvider} />
+          {editable ? (
+            <>
+              <Button
+                variant="secondary"
+                loading={busy}
+                onClick={() => void generateWeek(false)}
+              >
+                Use AI for empty slots
+              </Button>
+              <Button
+                variant="secondary"
+                loading={busy}
+                onClick={() => void generateWeek(true)}
+              >
+                Use AI for this week
+              </Button>
+              <Button
+                loading={busy}
+                disabled={!plan.completeness.readyToPublish}
+                title={
+                  plan.completeness.readyToPublish
+                    ? "Publish this plan"
+                    : missing.map((gap) => `${gap.mealSlot}: ${gap.reason.replaceAll("_", " ")}`).join(", ")
+                }
+                onClick={() => void publish()}
+              >
+                Publish
+              </Button>
+            </>
+          ) : null}
+        </div>
       </div>
 
-      {error && <ErrorBanner message={error} />}
-      {success && <SuccessBanner message={success} />}
+      {error ? <ErrorBanner message={error} /> : null}
+      {success ? <SuccessBanner message={success} /> : null}
 
-      {plan.profile ? (
+      <CompletenessBar
+        completeness={plan.completeness}
+        hasEmployee
+        hasDates={Boolean(plan.startsOn)}
+      />
+
+      <div className="grid gap-5 xl:grid-cols-[260px_minmax(0,1fr)_minmax(320px,380px)]">
         <Card>
-          <CardHeader title="Health profile snapshot" />
+          <CardHeader title="Employee goals" />
           <CardBody>
-            <div className="grid gap-3 text-sm text-slate-700 md:grid-cols-3">
-              <p>Age: {plan.profile.age}</p>
-              <p>Gender: {plan.profile.gender}</p>
-              <p>Height: {plan.profile.heightCm} cm</p>
-              <p>Weight: {plan.profile.weightKg} kg</p>
-              <p>Lifestyle: {plan.profile.lifestyle}</p>
-              <p>Activity: {plan.profile.activityLevel}</p>
-              <p className="md:col-span-3">Allergies: {plan.profile.allergies.join(", ") || "None"}</p>
-              <p className="md:col-span-3">Goals: {plan.profile.goals.join(", ") || "None"}</p>
-            </div>
-          </CardBody>
-        </Card>
-      ) : null}
-
-      {plan.days.map((day) => (
-        <Card key={day.id}>
-          <CardHeader title={day.label || `Day ${day.dayIndex}`} />
-          <CardBody>
-            <div className="space-y-3">
-              {day.items.map((item) => (
-                <div
-                  key={item.id}
-                  className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-medium text-slate-900">{item.title}</p>
-                    <Badge tone={item.matchType === "PRIMARY" ? "success" : "warning"}>
-                      {item.matchType}
-                    </Badge>
-                    <span className="text-xs uppercase tracking-wide text-slate-400">{item.mealSlot}</span>
-                  </div>
-                  <p className="mt-1 text-sm text-slate-600">
-                    {item.productName
-                      ? `Catalog: ${item.productName} × ${item.quantity}`
-                      : `Requested: ${item.requestedProductName || "—"} (unmatched)`}
-                  </p>
-                  {item.rationale ? (
-                    <p className="mt-1 text-sm text-slate-500">{item.rationale}</p>
-                  ) : null}
+            {plan.profile ? (
+              <div className="space-y-2 text-sm text-slate-600">
+                <p>
+                  {plan.profile.age} yrs · {plan.profile.gender.toLowerCase()} · {plan.profile.heightCm} cm · {plan.profile.weightKg} kg
+                </p>
+                <p>Lifestyle: {plan.profile.lifestyle.replaceAll("_", " ")}</p>
+                <p>Activity: {plan.profile.activityLevel.replaceAll("_", " ")}</p>
+                {plan.profile.targetEnergyKcal ? (
+                  <p>Target: {plan.profile.targetEnergyKcal} kcal</p>
+                ) : null}
+                <p className="pt-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Allergies
+                </p>
+                <p>{plan.profile.allergies.join(", ") || "None listed"}</p>
+                <p className="pt-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Goals
+                </p>
+                <div className="flex flex-wrap gap-1">
+                  {plan.profile.goals.map((goal) => (
+                    <span key={goal} className="rounded-full bg-indigo-50 px-2 py-1 text-xs text-indigo-700">
+                      {goal}
+                    </span>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500">No health profile on file.</p>
+            )}
+            {missing.length > 0 ? (
+              <div className="mt-4 rounded-xl bg-amber-50 p-3 text-xs text-amber-900">
+                <p className="font-semibold">Still open</p>
+                <ul className="mt-1 list-disc pl-4">
+                  {missing.map((gap) => (
+                    <li key={`${gap.dayId}-${gap.mealSlot}-${gap.reason}`}>
+                      {gap.planDate ?? "Day"} · {gap.mealSlot} · {gap.reason.replaceAll("_", " ")}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </CardBody>
         </Card>
-      ))}
 
-      {plan.status === "PENDING_REVIEW" ? (
         <Card>
-          <CardHeader title="Admin decision" subtitle="Approval creates a private pantry package." />
-          <CardBody className="space-y-4">
-            <Field label="Note (optional)">
-              <Textarea
-                value={adminNote}
-                onChange={(e) => setAdminNote(e.target.value)}
-                placeholder="Feedback for internal records"
-              />
-            </Field>
-            <div className="flex gap-3">
-              <Button loading={busy} onClick={() => handleDecision("approve")}>
-                Approve & create package
-              </Button>
-              <Button variant="danger" loading={busy} onClick={() => handleDecision("reject")}>
-                Reject
-              </Button>
-            </div>
+          <CardHeader
+            title="Week calendar"
+            subtitle="Breakfast, lunch, and dinner are required. Snack is optional."
+          />
+          <CardBody>
+            {plan.days.length > 7 ? (
+              <div className="mb-3 flex items-center justify-between">
+                <Button
+                  variant="ghost"
+                  disabled={weekStart === 0}
+                  onClick={() => setWeekStart(Math.max(0, weekStart - 7))}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="ghost"
+                  disabled={weekStart + 7 >= plan.days.length}
+                  onClick={() => setWeekStart(weekStart + 7)}
+                >
+                  Next
+                </Button>
+              </div>
+            ) : null}
+            <WeekGrid
+              days={plan.days}
+              weekStartIndex={weekStart}
+              selected={selected}
+              onSelect={selectSlot}
+            />
           </CardBody>
         </Card>
-      ) : (
-        <Card>
-          <CardHeader title="Decision" />
-          <CardBody className="space-y-2 text-sm text-slate-700">
-            {plan.adminNote ? <p>Note: {plan.adminNote}</p> : <p>No admin note.</p>}
-            {plan.packageId ? <p>Package ID: {plan.packageId}</p> : null}
-            {plan.reviewedAt ? <p>Reviewed: {formatDateTime(plan.reviewedAt)}</p> : null}
-            {plan.failureReason ? <p className="text-red-600">Failure: {plan.failureReason}</p> : null}
-          </CardBody>
-        </Card>
-      )}
+
+        {selected && selectedDay ? (
+          <div className="min-h-160 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <SlotEditor
+              plan={plan}
+              dayId={selected.dayId}
+              slot={selected.slot}
+              item={selectedItem}
+              provider={provider}
+              onProviderChange={setProvider}
+              onClose={() => setSelected(null)}
+              onSaved={(updated) => {
+                setPlan(updated);
+                setSuccess("Meal saved.");
+              }}
+              onError={setError}
+            />
+          </div>
+        ) : (
+          <Card>
+            <CardHeader title="Meal editor" />
+            <CardBody>
+              <p className="text-sm text-slate-500">
+                Click an empty slot to add food from the catalog, then write cooking directions.
+                Use AI for a full week or for one meal at a time.
+              </p>
+            </CardBody>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }

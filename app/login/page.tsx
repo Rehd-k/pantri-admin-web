@@ -9,30 +9,56 @@ import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Input";
 import { ErrorBanner, Spinner } from "@/components/ui/Feedback";
 
+const DEMO_NUTRITIONIST = {
+  email: "nutritionist@pantri.app",
+  password: "Nutrition123!",
+};
+
 export default function LoginPage() {
   const { login, user, loading } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [submitting, setSubmitting] = useState<"form" | "nutritionist" | null>(
+    null,
+  );
 
   useEffect(() => {
     if (!loading && user) {
-      router.replace("/");
+      router.replace(user.role === "NUTRITIONIST" ? "/meal-plans" : "/");
     }
   }, [loading, user, router]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
-    setSubmitting(true);
+    setSubmitting("form");
     try {
       await login(email, password);
     } catch (err) {
       setError(authErrorMessage(err, "Unable to sign in. Please try again."));
     } finally {
-      setSubmitting(false);
+      setSubmitting(null);
+    }
+  }
+
+  async function loadNutritionistAccount() {
+    setError(null);
+    setEmail(DEMO_NUTRITIONIST.email);
+    setPassword(DEMO_NUTRITIONIST.password);
+    setSubmitting("nutritionist");
+    try {
+      await login(DEMO_NUTRITIONIST.email, DEMO_NUTRITIONIST.password);
+    } catch (err) {
+      setError(
+        authErrorMessage(
+          err,
+          "Could not load the nutritionist account. Seed the database and try again.",
+        ),
+      );
+    } finally {
+      setSubmitting(null);
     }
   }
 
@@ -53,7 +79,7 @@ export default function LoginPage() {
           </div>
           <h1 className="text-xl font-semibold text-slate-900">Pantri Platform Admin</h1>
           <p className="text-sm text-slate-500">
-            Operate credit policy guardrails, write-offs, and platform-wide reporting.
+            Admins operate the platform. Nutritionists review and activate meal plans.
           </p>
         </div>
 
@@ -62,7 +88,7 @@ export default function LoginPage() {
           className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
         >
           {error ? <ErrorBanner message={error} /> : null}
-          <Field label="Admin email">
+          <Field label="Email">
             <Input
               type="email"
               required
@@ -83,12 +109,28 @@ export default function LoginPage() {
               placeholder="••••••••"
             />
           </Field>
-          <Button type="submit" loading={submitting} className="mt-2 w-full">
+          <Button
+            type="submit"
+            loading={submitting === "form"}
+            disabled={submitting !== null}
+            className="mt-2 w-full"
+          >
             Sign in
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            loading={submitting === "nutritionist"}
+            disabled={submitting !== null}
+            className="w-full"
+            onClick={() => void loadNutritionistAccount()}
+          >
+            Load nutritionist account
           </Button>
         </form>
         <p className="mt-6 text-center text-xs text-slate-400">
-          Super admin accounts only.
+          Admin and nutritionist accounts. Meal-plan review opens automatically
+          for nutritionists.
         </p>
       </div>
     </div>

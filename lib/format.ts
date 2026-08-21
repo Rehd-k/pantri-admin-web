@@ -51,3 +51,26 @@ export function koboToNairaInput(kobo: number): string {
   if (!Number.isFinite(kobo)) return "";
   return (kobo / 100).toFixed(kobo % 100 === 0 ? 0 : 2);
 }
+
+export function unitSizeLabel(unit: {
+  name: string;
+  dimension: string;
+  milligrams: number | null;
+  millilitres: number | null;
+  piecesPerUnit: number | null;
+}): string {
+  if (unit.dimension === "MASS" && unit.milligrams && unit.milligrams > 0) {
+    const grams = unit.milligrams / 1000;
+    const perKg = 1_000_000 / unit.milligrams;
+    const gramLabel = Number.isInteger(grams) ? String(grams) : grams.toFixed(1);
+    return `1 ${unit.name} = ${gramLabel}g · ≈ ${perKg.toFixed(1)} per kg`;
+  }
+  if (unit.dimension === "VOLUME" && unit.millilitres && unit.millilitres > 0) {
+    const perLitre = 1000 / unit.millilitres;
+    return `1 ${unit.name} = ${unit.millilitres}ml · ≈ ${perLitre.toFixed(1)} per litre`;
+  }
+  if (unit.dimension === "COUNT" && unit.piecesPerUnit && unit.piecesPerUnit > 0) {
+    return `1 ${unit.name} = ${unit.piecesPerUnit} piece${unit.piecesPerUnit === 1 ? "" : "s"}`;
+  }
+  return unit.name;
+}

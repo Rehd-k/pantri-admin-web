@@ -16,7 +16,7 @@ const ALL_NAV_ITEMS: {
   { href: "/", label: "Overview", roles: ["ADMIN"] },
   { href: "/users", label: "Users", match: "/users", roles: ["ADMIN"] },
   {
-    href: "/marketplace/categories",
+    href: "/marketplace/products",
     label: "Marketplace",
     match: "/marketplace",
     roles: ["ADMIN"],
@@ -170,7 +170,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             })}
           </nav>
           <main className="flex-1 px-4 py-6 md:px-8 md:py-8">
-            <div className="mx-auto max-w-6xl">{children}</div>
+            <div className="mx-auto w-full max-w-[88rem]">{children}</div>
           </main>
         </div>
       </div>

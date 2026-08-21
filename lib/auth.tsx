@@ -17,6 +17,7 @@ interface AuthContextValue {
   user: AuthUser | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  applySession: (response: AuthResponse) => void;
   logout: () => void;
 }
 
@@ -77,9 +78,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);
   }, []);
 
-  const login = useCallback(
-    async (email: string, password: string) => {
-      const response = await api.post<AuthResponse>("/auth/login", { email, password });
+  const applySession = useCallback(
+    (response: AuthResponse) => {
       if (!PORTAL_ROLES.has(response.user.role)) {
         throw new Error(
           "This portal is for Pantri admins and nutritionists only.",
@@ -98,6 +98,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [router],
   );
 
+  const login = useCallback(
+    async (email: string, password: string) => {
+      const response = await api.post<AuthResponse>("/auth/login", {
+        email,
+        password,
+      });
+      applySession(response);
+    },
+    [applySession],
+  );
+
   const logout = useCallback(() => {
     clearSession();
     setUser(null);
@@ -105,7 +116,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [router]);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider
+      value={{ user, loading, login, applySession, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );

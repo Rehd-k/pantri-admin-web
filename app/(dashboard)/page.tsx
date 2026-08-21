@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
-import type { PendingUser } from "@/lib/types";
+import { useAuth } from "@/lib/auth";
+import type { AuthResponse, PendingUser } from "@/lib/types";
 import { StatCard } from "@/components/ui/StatCard";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { DataTable, type Column } from "@/components/ui/Table";
@@ -12,11 +13,13 @@ import { Button } from "@/components/ui/Button";
 import { ErrorBanner, Spinner, SuccessBanner } from "@/components/ui/Feedback";
 
 export default function OverviewPage() {
+  const { applySession } = useAuth();
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [loadingNutritionist, setLoadingNutritionist] = useState(false);
 
   async function loadPendingUsers() {
     setLoading(true);
@@ -34,6 +37,24 @@ export default function OverviewPage() {
   useEffect(() => {
     loadPendingUsers();
   }, []);
+
+  async function loadNutritionistAccount() {
+    setLoadingNutritionist(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const session = await api.post<AuthResponse>("/admin/session/nutritionist");
+      applySession(session);
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : "Could not load the nutritionist account.",
+      );
+    } finally {
+      setLoadingNutritionist(false);
+    }
+  }
 
   async function handleDecision(id: string, decision: "approve" | "suspend") {
     setBusyId(id);
@@ -140,6 +161,26 @@ export default function OverviewPage() {
           >
             Open Users
           </Link>
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardBody className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="font-medium text-slate-900">
+              Load the nutritionist account
+            </p>
+            <p className="text-sm text-slate-500">
+              Switch into Ngozi Adeyemi&apos;s workspace to review, approve, and
+              reject employee meal plans.
+            </p>
+          </div>
+          <Button
+            loading={loadingNutritionist}
+            onClick={() => void loadNutritionistAccount()}
+          >
+            Load nutritionist account
+          </Button>
         </CardBody>
       </Card>
 

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 export interface Column<T> {
+  id?: string;
   header: string;
   accessor: (row: T) => ReactNode;
   className?: string;
@@ -31,7 +32,7 @@ export function DataTable<T>({
         <thead>
           <tr className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-400">
             {columns.map((col) => (
-              <th key={col.header} className={`px-5 py-3 font-medium ${col.className ?? ""}`}>
+              <th key={col.id ?? col.header} className={`px-5 py-3 font-medium ${col.className ?? ""}`}>
                 {col.header}
               </th>
             ))}
@@ -41,7 +42,7 @@ export function DataTable<T>({
           {rows.map((row) => (
             <tr key={keyFor(row)} className="hover:bg-slate-50">
               {columns.map((col) => (
-                <td key={col.header} className={`px-5 py-3 align-middle text-slate-700 ${col.className ?? ""}`}>
+                <td key={col.id ?? col.header} className={`px-5 py-3 align-middle text-slate-700 ${col.className ?? ""}`}>
                   {col.accessor(row)}
                 </td>
               ))}

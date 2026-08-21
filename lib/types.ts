@@ -101,13 +101,65 @@ export interface PrimaryGoal {
 }
 
 export type MealPlanStatus =
+  | "DRAFT"
   | "GENERATING"
   | "PENDING_REVIEW"
   | "APPROVED"
   | "REJECTED"
   | "FAILED";
 
+export type MealPlanSource = "MANUAL" | "AI" | "HYBRID";
+
 export type MealItemMatchType = "PRIMARY" | "ALTERNATIVE";
+
+export type MealPlanGapReason = "missing_meal" | "missing_product" | "missing_directions";
+
+export interface MealPlanGap {
+  dayId: string;
+  planDate: string | null;
+  mealSlot: string;
+  reason: MealPlanGapReason;
+}
+
+export interface MealPlanCompleteness {
+  requiredSlots: number;
+  filledSlots: number;
+  recipesWithSteps: number;
+  unmatched: number;
+  cookedCount: number;
+  plannedCount: number;
+  readyToPublish: boolean;
+  missing: MealPlanGap[];
+}
+
+export interface MealRecipeIngredient {
+  id: string;
+  productId: string;
+  productName: string;
+  productImageUrl: string;
+  measureUnitId: string | null;
+  measureUnitLabel: string | null;
+  quantity: number;
+  quantityCanonical: number;
+  haveCanonical: number;
+  isShort: boolean;
+  sortOrder: number;
+}
+
+export interface MealRecipe {
+  id: string;
+  employeeId: string;
+  title: string;
+  mealSlot: string;
+  instructions: string;
+  instructionSteps: string[];
+  rationale: string;
+  source: string;
+  cookability: string;
+  ingredients: MealRecipeIngredient[];
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface MealPlanSummary {
   id: string;
@@ -115,13 +167,18 @@ export interface MealPlanSummary {
   employeeName: string;
   employerName: string;
   status: MealPlanStatus;
+  source: MealPlanSource;
   title: string;
+  startsOn: string | null;
+  endsOn: string | null;
+  activatedAt: string | null;
   packageId: string | null;
   failureReason: string | null;
   adminNote: string | null;
   reviewedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  completeness: MealPlanCompleteness;
 }
 
 export interface MealPlanItem {
@@ -132,11 +189,18 @@ export interface MealPlanItem {
   requestedProductName: string;
   productId: string | null;
   productName: string | null;
+  productImageUrl: string | null;
+  origin: string | null;
+  nutritionFacts: Record<string, string>;
+  tags: string[];
   matchType: MealItemMatchType;
   quantity: number;
   quantityCanonical: number;
   measureUnitId: string | null;
   measureUnitLabel: string | null;
+  recipeId: string | null;
+  recipe: MealRecipe | null;
+  cookedAt: string | null;
   sortOrder: number;
 }
 
@@ -144,21 +208,65 @@ export interface MealPlanDay {
   id: string;
   dayIndex: number;
   label: string;
+  planDate: string | null;
   items: MealPlanItem[];
+}
+
+export interface MealPlanProfile {
+  age: number;
+  gender: string;
+  heightCm: number;
+  weightKg: number;
+  lifestyle: string;
+  activityLevel: string;
+  allergies: string[];
+  goals: string[];
+  targetEnergyKcal?: number;
+  targetProteinMg?: number;
+  targetCarbsMg?: number;
+  targetFatMg?: number;
 }
 
 export interface MealPlanDetail extends MealPlanSummary {
   days: MealPlanDay[];
-  profile: {
-    age: number;
-    gender: string;
-    heightCm: number;
-    weightKg: number;
-    lifestyle: string;
-    activityLevel: string;
-    allergies: string[];
-    goals: string[];
-  } | null;
+  profile: MealPlanProfile | null;
+}
+
+export interface NutritionEmployee {
+  employeeId: string;
+  userId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  employerName: string;
+  hasProfile: boolean;
+  hasActivePlan: boolean;
+  latestPlanStatus: MealPlanStatus | null;
+  latestPlanId: string | null;
+  profile: MealPlanProfile | null;
+}
+
+export interface CatalogProductPick {
+  id: string;
+  name: string;
+  imageUrl: string;
+  origin: string;
+  tags: string[];
+  nutritionFacts: Record<string, string>;
+  measureUnitId: string | null;
+  measureUnitLabel: string | null;
+}
+
+export type AiProviderChoice = "auto" | "openai" | "anthropic";
+
+export interface AiSlotSuggestion {
+  mealSlot: string;
+  title: string;
+  rationale: string;
+  instructionSteps: string[];
+  ingredients: Array<{ productId: string; quantity?: number }>;
+  applied: boolean;
+  item: MealPlanItem | null;
 }
 
 export interface MediaUpload {
@@ -249,6 +357,22 @@ export interface PerfectForItem {
   imageUrl: string;
 }
 
+export interface CanonicalNutrition {
+  energyKcal: number;
+  proteinMg: number;
+  carbsMg: number;
+  fatMg: number;
+  fiberMg: number;
+  sugarMg: number;
+  sodiumMg: number;
+  ironUg: number;
+}
+
+export interface ProductAllergen {
+  id: string;
+  name: string;
+}
+
 export interface RatingDistribution {
   star1: number;
   star2: number;
@@ -331,6 +455,23 @@ export interface CreateProductPackInput {
 
 export type UpdateProductPackInput = Partial<CreateProductPackInput>;
 
+export interface CreateMeasureUnitInput {
+  slug?: string;
+  name: string;
+  shortLabel: string;
+  kind: string;
+  dimension: string;
+  milligrams?: number | null;
+  millilitres?: number | null;
+  piecesPerUnit?: number | null;
+  isPurchaseUnit?: boolean;
+  isRecipeUnit?: boolean;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+export type UpdateMeasureUnitInput = Partial<Omit<CreateMeasureUnitInput, "slug">>;
+
 export interface MarketplaceProduct {
   id: string;
   slug: string;
@@ -349,10 +490,14 @@ export interface MarketplaceProduct {
   origin: string;
   recipeUnitOverrideMg: number | null;
   recipeUnitOverrideMl: number | null;
+  recipeUnitId: string | null;
+  recipeUnit: MeasureUnit | null;
   expiresAt: string | null;
   isVerified: boolean;
   bulkAllocationClaimedPercent: number;
   nutritionFacts: Record<string, string>;
+  nutrition: CanonicalNutrition;
+  allergens: ProductAllergen[];
   perfectFor: PerfectForItem[];
   tags: string[];
   packs: ProductPack[];
@@ -379,6 +524,7 @@ export interface CreateProductInput {
   imageUrl: string;
   description?: string;
   origin?: string;
+  recipeUnitId?: string | null;
   recipeUnitOverrideMg?: number | null;
   recipeUnitOverrideMl?: number | null;
   expiresAt?: string | null;

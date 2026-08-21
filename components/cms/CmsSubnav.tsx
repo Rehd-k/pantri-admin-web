@@ -31,10 +31,11 @@ export function CmsSubnav({
 }
 
 export const MARKETPLACE_NAV = [
+  { href: "/marketplace/products", label: "Products" },
   { href: "/marketplace/categories", label: "Categories" },
   { href: "/marketplace/subcategories", label: "Subcategories" },
-  { href: "/marketplace/products", label: "Products" },
   { href: "/marketplace/banners", label: "Banners" },
+  { href: "/marketplace/measures", label: "Units" },
 ];
 
 export const PACKAGES_NAV = [
