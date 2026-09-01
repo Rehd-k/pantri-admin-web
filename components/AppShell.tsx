@@ -22,6 +22,7 @@ const ALL_NAV_ITEMS: {
     roles: ["ADMIN"],
   },
   { href: "/packages", label: "Packages", match: "/packages", roles: ["ADMIN"] },
+  { href: "/blog", label: "Blog", match: "/blog", roles: ["ADMIN"] },
   { href: "/companies", label: "Companies", match: "/companies", roles: ["ADMIN"] },
   {
     href: "/verification",

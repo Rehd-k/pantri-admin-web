@@ -96,7 +96,7 @@ export default function NewMealPlanPage() {
                     {employee.firstName} {employee.lastName}
                   </p>
                   <p>{employee.employerName}</p>
-                  <p className="mt-2">Goals: {employee.profile?.goals.join(", ") || "—"}</p>
+                  <p className="mt-2">Goals: {employee.profile?.goals.join(", ") || ""}</p>
                   <p>Allergies: {employee.profile?.allergies.join(", ") || "None"}</p>
                 </div>
               ) : (

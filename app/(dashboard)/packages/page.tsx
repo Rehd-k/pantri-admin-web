@@ -47,7 +47,7 @@ export default function PackagesPage() {
           // eslint-disable-next-line @next/next/no-img-element
           <img src={row.coverImageUrl} alt="" className="h-10 w-10 rounded-lg object-cover" />
         ) : (
-          "—"
+          ""
         ),
     },
     {
@@ -63,7 +63,7 @@ export default function PackagesPage() {
     {
       header: "Popular",
       accessor: (row) =>
-        row.isPopular ? <Badge tone="info">POPULAR</Badge> : <span className="text-slate-400">—</span>,
+        row.isPopular ? <Badge tone="info">POPULAR</Badge> : <span className="text-slate-400"></span>,
     },
     {
       header: "",

@@ -90,14 +90,14 @@ export default function WriteOffsPage() {
       accessor: (row) => (
         <div>
           <p className="font-medium text-slate-900">{row.employeeName ?? row.creditAccountId}</p>
-          <p className="text-xs text-slate-400">{row.employerName ?? "—"}</p>
+          <p className="text-xs text-slate-400">{row.employerName ?? ""}</p>
         </div>
       ),
     },
     { header: "Amount", accessor: (row) => formatNaira(row.amountKobo) },
     { header: "Reason", accessor: (row) => <span className="max-w-xs truncate">{row.reason}</span> },
     { header: "Status", accessor: (row) => <Badge>{row.status}</Badge> },
-    { header: "Requested by", accessor: (row) => row.requestedByName ?? "—" },
+    { header: "Requested by", accessor: (row) => row.requestedByName ?? "" },
     { header: "Requested", accessor: (row) => formatDateTime(row.createdAt) },
     {
       header: "Actions",
@@ -123,7 +123,7 @@ export default function WriteOffsPage() {
           </div>
         ) : (
           <span className="text-xs text-slate-400">
-            {row.approvedByName ? `by ${row.approvedByName}` : "—"}
+            {row.approvedByName ? `by ${row.approvedByName}` : ""}
           </span>
         ),
     },
@@ -135,7 +135,7 @@ export default function WriteOffsPage() {
         <h1 className="text-2xl font-semibold text-slate-900">Write-Offs</h1>
         <p className="mt-1 text-sm text-slate-500">
           Request a write-off against an uncollectable balance, then have a{" "}
-          <strong>different</strong> admin approve it — dual approval is enforced server-side, so
+          <strong>different</strong> admin approve it  dual approval is enforced server-side, so
           the requester cannot also approve their own request. Approval immediately posts a{" "}
           <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">WRITE_OFF</code> ledger entry,
           allocated across interest, fees, penalties, then principal.

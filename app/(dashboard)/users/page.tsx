@@ -95,7 +95,7 @@ export default function AdminUsersPage() {
           row.businessName ??
           row.fleetName ??
           row.verificationStatus ??
-          "—",
+          "",
       },
       {
         header: "Joined",

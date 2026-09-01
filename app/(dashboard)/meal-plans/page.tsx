@@ -87,7 +87,7 @@ export default function MealPlansPage() {
       {
         header: "Dates",
         accessor: (row) =>
-          row.startsOn && row.endsOn ? `${row.startsOn} → ${row.endsOn}` : "—",
+          row.startsOn && row.endsOn ? `${row.startsOn} → ${row.endsOn}` : "",
       },
       {
         header: "Progress",
@@ -162,7 +162,7 @@ export default function MealPlansPage() {
     { header: "Company", accessor: (row) => row.employerName },
     {
       header: "Goals",
-      accessor: (row) => row.profile?.goals.join(", ") || "—",
+      accessor: (row) => row.profile?.goals.join(", ") || "",
     },
     {
       header: "Allergies",

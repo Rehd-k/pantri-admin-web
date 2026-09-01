@@ -347,7 +347,7 @@ export function ProductForm({ productId }: { productId?: string }) {
       {success ? <SuccessBanner message={success} /> : null}
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <Card>
-          <CardHeader title="Identity" subtitle="The food itself — packs and prices live below" />
+          <CardHeader title="Identity" subtitle="The food itself  packs and prices live below" />
           <CardBody className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Category">
               <Select

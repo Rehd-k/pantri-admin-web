@@ -93,7 +93,7 @@ export default function AllergiesPage() {
             Deactivate
           </Button>
         ) : (
-          "—"
+          ""
         ),
     },
   ];

@@ -161,7 +161,7 @@ export function MeasureUnitForm({ unitId }: { unitId?: string }) {
           {isEdit ? "Edit unit" : "New unit"}
         </h1>
         <p className="mt-1 text-sm text-slate-500">
-          These are the household measures customers see — cups, pours, spoons, scoops. Rename them anytime.
+          These are the household measures customers see  cups, pours, spoons, scoops. Rename them anytime.
         </p>
       </div>
       {error ? <ErrorBanner message={error} /> : null}

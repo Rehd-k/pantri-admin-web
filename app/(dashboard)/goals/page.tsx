@@ -85,7 +85,7 @@ export default function GoalsPage() {
       accessor: (row) => (
         <div>
           <p className="font-medium text-slate-900">{row.name}</p>
-          <p className="text-xs text-slate-400">{row.description || "—"}</p>
+          <p className="text-xs text-slate-400">{row.description || ""}</p>
         </div>
       ),
     },
@@ -108,7 +108,7 @@ export default function GoalsPage() {
             Deactivate
           </Button>
         ) : (
-          "—"
+          ""
         ),
     },
   ];

@@ -99,7 +99,7 @@ export default function CompanyPortalPage() {
       accessor: (invoice) => `${formatDate(invoice.periodStart)} – ${formatDate(invoice.periodEnd)}`,
     },
     { header: "Status", accessor: (invoice) => <Badge>{invoice.status}</Badge> },
-    { header: "Lines", accessor: (invoice) => invoice._count?.lines ?? "—" },
+    { header: "Lines", accessor: (invoice) => invoice._count?.lines ?? "" },
     { header: "Total due", accessor: (invoice) => formatNaira(invoice.totalDueKobo) },
     { header: "Remitted", accessor: (invoice) => formatNaira(invoice.remittedKobo) },
   ];

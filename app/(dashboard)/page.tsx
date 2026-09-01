@@ -89,7 +89,7 @@ export default function OverviewPage() {
     { header: "Role", accessor: (user) => <Badge tone="info">{user.role}</Badge> },
     {
       header: "Business",
-      accessor: (user) => user.businessName ?? user.fleetName ?? user.employerName ?? "—",
+      accessor: (user) => user.businessName ?? user.fleetName ?? user.employerName ?? "",
     },
     { header: "Status", accessor: (user) => <Badge>{user.status}</Badge> },
     {
@@ -141,7 +141,7 @@ export default function OverviewPage() {
           hint="Open Users to browse every account"
           tone="success"
         />
-        <StatCard label="Write-off queue" value="—" hint="See Write-Offs tab" />
+        <StatCard label="Write-off queue" value="" hint="See Write-Offs tab" />
       </div>
 
       <Card>
@@ -151,7 +151,7 @@ export default function OverviewPage() {
               Browse every user and their history
             </p>
             <p className="text-sm text-slate-500">
-              Employees, employers, nutritionists, suppliers, and logistics —
+              Employees, employers, nutritionists, suppliers, and logistics 
               click into orders, credit, verification, and more.
             </p>
           </div>

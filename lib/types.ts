@@ -1,5 +1,5 @@
 // Mirrors of backend DTOs (see backend/src/**/dto/*.dto.ts). Keep in sync
-// with the NestJS source of truth — never guess shapes independently.
+// with the NestJS source of truth  never guess shapes independently.
 
 export type UserRole =
   | "ADMIN"
@@ -1014,3 +1014,60 @@ export interface UpdateDeliverySettingsInput {
   freeDeliveryMinKobo?: number;
   deliveryFeeKobo?: number;
 }
+
+export type BlogPostCategoryKey =
+  | "FOOD"
+  | "NUTRITION"
+  | "RECIPES"
+  | "FAMILY"
+  | "BUDGETING"
+  | "HEALTHY_LIVING"
+  | "FOOD_PRICES"
+  | "COOKING"
+  | "EVENTS"
+  | "VIDEOS";
+
+export type BlogPostStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
+
+export interface BlogCategoryOption {
+  key: BlogPostCategoryKey;
+  label: string;
+}
+
+export interface BlogPost {
+  id: string;
+  slug: string;
+  title: string;
+  excerpt: string;
+  category: string;
+  categoryKey: BlogPostCategoryKey;
+  bodyParagraphs: string[];
+  coverGradient: string;
+  coverImageUrl: string | null;
+  youtubeUrl: string | null;
+  youtubeEmbedUrl: string | null;
+  tiktokUrl: string | null;
+  readTimeMinutes: number;
+  status: BlogPostStatus;
+  publishedAt: string | null;
+  authorUserId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateBlogPostInput {
+  slug?: string;
+  title: string;
+  excerpt: string;
+  category: BlogPostCategoryKey;
+  bodyParagraphs: string[];
+  coverGradient: string;
+  coverImageUrl?: string | null;
+  youtubeUrl?: string | null;
+  tiktokUrl?: string | null;
+  readTimeMinutes?: number;
+  status?: BlogPostStatus;
+}
+
+export type UpdateBlogPostInput = Partial<CreateBlogPostInput>;
+
