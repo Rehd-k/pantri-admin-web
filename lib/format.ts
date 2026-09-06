@@ -43,7 +43,7 @@ export function nairaToKobo(raw: string): number | null {
   const trimmed = raw.trim();
   if (!trimmed) return null;
   const n = Number(trimmed);
-  if (!Number.isFinite(n) || n < 0) return null;
+  if (!Number.isFinite(n)) return null;
   return Math.round(n * 100);
 }
 

@@ -7,8 +7,15 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { ErrorBanner, Spinner, SuccessBanner } from "@/components/ui/Feedback";
+import { Field, Input } from "@/components/ui/Input";
 import { api, ApiError } from "@/lib/api";
-import { formatDate, formatDateTime, formatNaira } from "@/lib/format";
+import {
+  formatDate,
+  formatDateTime,
+  formatNaira,
+  koboToNairaInput,
+  nairaToKobo,
+} from "@/lib/format";
 import type { AdminUserDetail, OrderFulfillmentStatus } from "@/lib/types";
 
 const NEXT_STATUS: Partial<
@@ -27,12 +34,20 @@ export default function AdminUserDetailPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [salaryNaira, setSalaryNaira] = useState("");
+  const [multiplierBps, setMultiplierBps] = useState("15000");
+  const [salaryReason, setSalaryReason] = useState("");
 
   async function load() {
     setLoading(true);
     setError(null);
     try {
-      setUser(await api.get<AdminUserDetail>(`/admin/users/${userId}`));
+      const data = await api.get<AdminUserDetail>(`/admin/users/${userId}`);
+      setUser(data);
+      if (data.employee) {
+        setSalaryNaira(koboToNairaInput(data.employee.salaryKobo));
+        setMultiplierBps(String(data.employee.creditMultiplierBps ?? 15000));
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to load user.");
       setUser(null);
@@ -78,11 +93,45 @@ export default function AdminUserDetailPage() {
     }
   }
 
+  async function updateSalary() {
+    if (!user?.employee) return;
+    const salaryKobo = nairaToKobo(salaryNaira);
+    const creditMultiplierBps = Number(multiplierBps);
+    if (
+      salaryKobo === null ||
+      salaryKobo < 1 ||
+      !Number.isInteger(creditMultiplierBps)
+    ) {
+      setError(
+        "Enter a valid salary in naira and credit multiplier in basis points.",
+      );
+      return;
+    }
+    setBusyId("salary");
+    setError(null);
+    setSuccess(null);
+    try {
+      await api.patch(`/admin/employees/${user.employee.id}/salary`, {
+        salaryKobo,
+        creditMultiplierBps,
+        ...(salaryReason.trim() ? { reason: salaryReason.trim() } : {}),
+      });
+      setSalaryReason("");
+      setSuccess("Salary updated. Credit limit recalculated.");
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Salary update failed.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   if (loading && !user) return <Spinner label="Loading user history…" />;
   if (!user) return error ? <ErrorBanner message={error} /> : null;
 
   const employee = user.employee;
   const account = employee?.creditAccount ?? null;
+  const finance = employee?.finance;
 
   return (
     <div className="flex flex-col gap-6">
@@ -104,6 +153,14 @@ export default function AdminUserDetailPage() {
           {user.businessName ? ` · ${user.businessName}` : ""}
           {user.fleetName ? ` · ${user.fleetName}` : ""}
         </p>
+        {employee ? (
+          <Link
+            href={`/employees/${employee.id}`}
+            className="mt-2 inline-block text-sm font-medium text-indigo-700 hover:underline"
+          >
+            Open full financial profile →
+          </Link>
+        ) : null}
       </div>
 
       {error ? <ErrorBanner message={error} /> : null}
@@ -156,25 +213,37 @@ export default function AdminUserDetailPage() {
         </Card>
         <Card>
           <CardBody>
-            <p className="text-xs text-slate-500">Orders</p>
+            <p className="text-xs text-slate-500">Outstanding</p>
             <p className="mt-1 text-xl font-semibold">
-              {employee?.orders.length ?? 0}
+              {formatNaira(finance?.outstandingKobo ?? employee?.exposureKobo ?? 0)}
             </p>
           </CardBody>
         </Card>
         <Card>
           <CardBody>
-            <p className="text-xs text-slate-500">Credit exposure</p>
+            <p className="text-xs text-slate-500">Monthly deduction</p>
             <p className="mt-1 text-xl font-semibold">
-              {formatNaira(employee?.exposureKobo ?? 0)}
+              {formatNaira(
+                finance?.monthlyDeductionKobo ??
+                  employee?.monthlyDeductionKobo ??
+                  0,
+              )}
             </p>
+            {finance?.estimatedPayoffMonths != null ? (
+              <p className="mt-1 text-xs text-slate-400">
+                ~{finance.estimatedPayoffMonths} mo payoff
+              </p>
+            ) : null}
           </CardBody>
         </Card>
         <Card>
           <CardBody>
-            <p className="text-xs text-slate-500">Meal plans</p>
+            <p className="text-xs text-slate-500">Available / utilization</p>
             <p className="mt-1 text-xl font-semibold">
-              {employee?.mealPlans.length ?? 0}
+              {formatNaira(finance?.availableKobo ?? account?.availableKobo ?? 0)}
+            </p>
+            <p className="mt-1 text-xs text-slate-400">
+              {finance?.utilizationPercent ?? 0}% utilized
             </p>
           </CardBody>
         </Card>
@@ -204,6 +273,50 @@ export default function AdminUserDetailPage() {
 
       {employee ? (
         <>
+          <Card>
+            <CardHeader
+              title="Update salary"
+              subtitle={`Current ${formatNaira(employee.salaryKobo)} · changes recalculate credit limit`}
+            />
+            <CardBody>
+              <div className="grid gap-3 md:grid-cols-4">
+                <Field label="Monthly salary (₦)">
+                  <Input
+                    type="number"
+                    min={1}
+                    step="0.01"
+                    value={salaryNaira}
+                    onChange={(event) => setSalaryNaira(event.target.value)}
+                  />
+                </Field>
+                <Field label="Credit multiplier (bps)">
+                  <Input
+                    type="number"
+                    min={1000}
+                    max={100000}
+                    value={multiplierBps}
+                    onChange={(event) => setMultiplierBps(event.target.value)}
+                  />
+                </Field>
+                <Field label="Reason (optional)">
+                  <Input
+                    value={salaryReason}
+                    onChange={(event) => setSalaryReason(event.target.value)}
+                    placeholder="e.g. Annual raise"
+                  />
+                </Field>
+                <div className="flex items-end">
+                  <Button
+                    loading={busyId === "salary"}
+                    onClick={() => void updateSalary()}
+                  >
+                    Save salary
+                  </Button>
+                </div>
+              </div>
+            </CardBody>
+          </Card>
+
           <Card>
             <CardHeader title="Verification documents" />
             <CardBody>

@@ -139,6 +139,7 @@ export interface MealRecipeIngredient {
   productImageUrl: string;
   measureUnitId: string | null;
   measureUnitLabel: string | null;
+  displayLabel?: string;
   quantity: number;
   quantityCanonical: number;
   haveCanonical: number;
@@ -155,6 +156,7 @@ export interface MealRecipe {
   instructionSteps: string[];
   rationale: string;
   source: string;
+  baseServings?: number;
   cookability: string;
   ingredients: MealRecipeIngredient[];
   createdAt: string;
@@ -181,6 +183,8 @@ export interface MealPlanSummary {
   completeness: MealPlanCompleteness;
 }
 
+export type MealItemStatus = "PLANNED" | "COOKED" | "SKIPPED" | "SUBSTITUTED";
+
 export interface MealPlanItem {
   id: string;
   mealSlot: string;
@@ -200,6 +204,9 @@ export interface MealPlanItem {
   measureUnitLabel: string | null;
   recipeId: string | null;
   recipe: MealRecipe | null;
+  status: MealItemStatus;
+  servings: number;
+  substitutedRecipeId: string | null;
   cookedAt: string | null;
   sortOrder: number;
 }
@@ -801,6 +808,7 @@ export interface AdminUserDetail {
     salaryKobo: number;
     creditMultiplierBps: number | null;
     deductionPercent: number;
+    monthlyDeductionKobo?: number;
     accountStatus: string;
     verificationStatus: EmployeeVerificationStatus;
     verifiedAt: string | null;
@@ -811,6 +819,7 @@ export interface AdminUserDetail {
     state: string | null;
     createdAt: string;
     exposureKobo: number;
+    finance?: AdminCreditFinance | null;
     verificationDocuments: VerificationDocument[];
     salaryHistory: Array<{
       id: string;
@@ -818,18 +827,11 @@ export interface AdminUserDetail {
       effectiveAt: string;
       reason: string | null;
     }>;
-    orders: Array<{
-      id: string;
-      totalKobo: number;
-      fulfillmentStatus: OrderFulfillmentStatus;
-      creditStatus: string;
-      createdAt: string;
-      items: Array<{ id: string; name: string; quantity: number }>;
-      statusHistory: OrderStatusHistory[];
-    }>;
+    orders: AdminEmployeeOrder[];
     creditAccount: {
       id: string;
       creditLimitKobo: number;
+      manualLimitOverrideKobo?: number | null;
       availableKobo: number;
       reservedKobo: number;
       principalOutstandingKobo: number;
@@ -837,13 +839,7 @@ export interface AdminUserDetail {
       postedFeesKobo: number;
       postedPenaltiesKobo: number;
       status: string;
-      ledgerEntries: Array<{
-        id: string;
-        entryType: string;
-        amountKobo: number;
-        balanceAfterKobo: number;
-        createdAt: string;
-      }>;
+      ledgerEntries: AdminLedgerEntry[];
     } | null;
     mealPlans: Array<{
       id: string;
@@ -853,22 +849,7 @@ export interface AdminUserDetail {
       reviewedAt: string | null;
       createdAt: string;
     }>;
-    payrollLines: Array<{
-      id: string;
-      requestedKobo: number;
-      collectedKobo: number;
-      status: string;
-      salarySnapshotKobo: number;
-      deductionPercentSnapshot: number;
-      createdAt: string;
-      payrollRun: {
-        id: string;
-        periodStart: string;
-        periodEnd: string;
-        payrollDate: string;
-        status: string;
-      };
-    }>;
+    payrollLines: AdminPayrollLine[];
     cookedMeals: Array<{
       id: string;
       recipeId: string;
@@ -903,12 +884,95 @@ export interface AdminUserDetail {
   }>;
 }
 
+export interface AdminCreditFinance {
+  creditLimitKobo: number;
+  manualLimitOverrideKobo: number | null;
+  effectiveCreditLimitKobo: number;
+  outstandingKobo: number;
+  availableKobo: number;
+  reservedKobo: number;
+  utilizationBps: number;
+  utilizationPercent: number;
+  monthlyDeductionKobo: number;
+  deductionPercent: number;
+  estimatedPayoffMonths: number | null;
+  estimatedPayoffDate: string | null;
+  paysOffWithinMax: boolean;
+  accountStatus: string;
+  lastPurchaseAt: string | null;
+  lastRepaymentAt: string | null;
+  principalOutstandingKobo: number;
+  postedInterestKobo: number;
+  postedFeesKobo: number;
+  postedPenaltiesKobo: number;
+}
+
+export interface AdminLedgerEntry {
+  id: string;
+  sequence: number;
+  entryType: string;
+  amountKobo: number;
+  balanceAfterKobo: number;
+  balanceBeforeKobo: number;
+  reservedAfterKobo: number;
+  referenceType: string | null;
+  referenceId: string | null;
+  metadata: Record<string, unknown>;
+  createdByUserId: string | null;
+  createdByName: string | null;
+  createdAt: string;
+}
+
+export interface AdminEmployeeOrder {
+  id: string;
+  totalKobo: number;
+  subtotalKobo?: number;
+  deliveryFeeKobo?: number;
+  serviceFeeKobo?: number;
+  fulfillmentStatus: OrderFulfillmentStatus;
+  creditStatus: string;
+  approvedAmountKobo?: number | null;
+  fulfilledKobo?: number;
+  reservedKobo?: number | null;
+  reservationStatus?: string | null;
+  createdAt: string;
+  items: Array<{
+    id: string;
+    name: string;
+    quantity: number;
+    fulfilledQuantity?: number;
+    unitPriceKobo?: number;
+    lineTotalKobo?: number;
+  }>;
+  statusHistory: OrderStatusHistory[];
+}
+
+export interface AdminPayrollLine {
+  id: string;
+  requestedKobo: number;
+  collectedKobo: number;
+  differenceKobo?: number;
+  status: string;
+  salarySnapshotKobo: number;
+  deductionPercentSnapshot: number;
+  createdAt: string;
+  payrollRun: {
+    id: string;
+    periodStart: string;
+    periodEnd: string;
+    payrollDate: string;
+    status: string;
+  };
+}
+
 export interface AdminEmployeeDetail {
   id: string;
   employerId: string;
   salaryKobo: number;
   creditMultiplierBps: number | null;
   deductionPercent: number;
+  monthlyDeductionKobo?: number;
+  accountStatus?: string;
   verificationStatus: EmployeeVerificationStatus;
   verifiedAt: string | null;
   rejectionReason: string | null;
@@ -917,6 +981,7 @@ export interface AdminEmployeeDetail {
   city: string | null;
   state: string | null;
   createdAt: string;
+  finance?: AdminCreditFinance | null;
   user: {
     id: string;
     email: string;
@@ -924,7 +989,7 @@ export interface AdminEmployeeDetail {
     lastName: string;
     status: UserStatus;
   };
-  employer: { id: string; name: string };
+  employer: { id: string; name: string; payrollDayOfMonth?: number | null };
   verificationDocuments: VerificationDocument[];
   salaryHistory: Array<{
     id: string;
@@ -932,31 +997,91 @@ export interface AdminEmployeeDetail {
     effectiveAt: string;
     reason: string | null;
   }>;
-  orders: Array<{
-    id: string;
-    totalKobo: number;
-    fulfillmentStatus: OrderFulfillmentStatus;
-    creditStatus: string;
-    createdAt: string;
-    items: Array<{ id: string; name: string; quantity: number }>;
-    statusHistory: OrderStatusHistory[];
-  }>;
+  orders: AdminEmployeeOrder[];
+  payrollLines?: AdminPayrollLine[];
   creditAccount: {
     id: string;
     creditLimitKobo: number;
+    manualLimitOverrideKobo?: number | null;
     availableKobo: number;
+    reservedKobo?: number;
     principalOutstandingKobo: number;
     postedInterestKobo: number;
     postedFeesKobo: number;
     postedPenaltiesKobo: number;
-    ledgerEntries: Array<{
-      id: string;
-      entryType: string;
-      amountKobo: number;
-      balanceAfterKobo: number;
-      createdAt: string;
-    }>;
+    status?: string;
+    ledgerEntries: AdminLedgerEntry[];
   } | null;
+}
+
+export interface AdminOpsSummary {
+  activeEmployees: number;
+  totalOutstandingKobo: number;
+  purchasesThisPeriodKobo: number;
+  expectedPayrollKobo: number;
+  receivedPayrollKobo: number;
+  payrollDifferenceKobo: number;
+  missedDeductionLines: number;
+  frozenAccounts: number;
+  pendingWriteOffs: number;
+  ordersRequiringAttention: number;
+  highUtilizationAccounts: number;
+  attentionItems: Array<{
+    type: string;
+    count: number;
+    href: string;
+    label: string;
+  }>;
+  periodStart: string;
+}
+
+export interface AdminPayrollRunListItem {
+  id: string;
+  employerId: string;
+  employerName: string;
+  periodStart: string;
+  periodEnd: string;
+  payrollDate: string;
+  status: string;
+  lineCount: number;
+  expectedKobo: number;
+  receivedKobo: number;
+  differenceKobo: number;
+  pendingCount: number;
+  missedCount: number;
+  remittedCount: number;
+  createdAt: string;
+}
+
+export interface AdminPayrollRunDetail {
+  id: string;
+  employerId: string;
+  employerName: string;
+  periodStart: string;
+  periodEnd: string;
+  payrollDate: string;
+  status: string;
+  expectedKobo: number;
+  receivedKobo: number;
+  differenceKobo: number;
+  createdAt: string;
+  remittedCount?: number;
+  failedCount?: number;
+  missedCount?: number;
+  lines: Array<{
+    id: string;
+    employeeId: string;
+    employeeName: string;
+    employeeEmail: string;
+    salarySnapshotKobo: number;
+    deductionPercentSnapshot: number;
+    expectedKobo: number;
+    actualKobo: number;
+    differenceKobo: number;
+    status: string;
+    ledgerEntryId: string | null;
+    createdAt: string;
+  }>;
 }
 
 export type CompanyInvoiceStatus = "DRAFT" | "ISSUED" | "PAID" | "VOID";

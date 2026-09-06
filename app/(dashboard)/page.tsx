@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import type { AuthResponse, PendingUser } from "@/lib/types";
+import type { AdminOpsSummary, AuthResponse, PendingUser } from "@/lib/types";
+import { formatNaira } from "@/lib/format";
 import { StatCard } from "@/components/ui/StatCard";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { DataTable, type Column } from "@/components/ui/Table";
@@ -15,27 +16,32 @@ import { ErrorBanner, Spinner, SuccessBanner } from "@/components/ui/Feedback";
 export default function OverviewPage() {
   const { applySession } = useAuth();
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
+  const [ops, setOps] = useState<AdminOpsSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [loadingNutritionist, setLoadingNutritionist] = useState(false);
 
-  async function loadPendingUsers() {
+  async function load() {
     setLoading(true);
     setError(null);
     try {
-      const data = await api.get<PendingUser[]>("/admin/pending-users");
-      setPendingUsers(data);
+      const [pending, summary] = await Promise.all([
+        api.get<PendingUser[]>("/admin/pending-users"),
+        api.get<AdminOpsSummary>("/admin/ops/summary"),
+      ]);
+      setPendingUsers(pending);
+      setOps(summary);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed to load pending users.");
+      setError(err instanceof ApiError ? err.message : "Failed to load overview.");
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    loadPendingUsers();
+    void load();
   }, []);
 
   async function loadNutritionistAccount() {
@@ -63,7 +69,7 @@ export default function OverviewPage() {
     try {
       await api.patch(`/admin/users/${id}/${decision}`);
       setSuccess(`User ${decision === "approve" ? "approved" : "suspended"}.`);
-      await loadPendingUsers();
+      await load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Action failed.");
     } finally {
@@ -122,12 +128,75 @@ export default function OverviewPage() {
       <div>
         <h1 className="text-2xl font-semibold text-slate-900">Platform Overview</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Onboarding queue and quick links across the Pantri credit platform.
+          Financial posture first, then items that need human action.
         </p>
       </div>
 
       {error ? <ErrorBanner message={error} /> : null}
       {success ? <SuccessBanner message={success} /> : null}
+
+      {loading && !ops ? (
+        <Spinner label="Loading overview…" />
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard
+              label="Outstanding credit"
+              value={formatNaira(ops?.totalOutstandingKobo ?? 0)}
+              hint="Principal + interest + fees + penalties"
+            />
+            <StatCard
+              label="Active employees"
+              value={String(ops?.activeEmployees ?? 0)}
+              hint="Across all employers"
+              tone="success"
+            />
+            <StatCard
+              label="Purchases this period"
+              value={formatNaira(ops?.purchasesThisPeriodKobo ?? 0)}
+              hint="Posted purchase ledger entries"
+            />
+            <StatCard
+              label="Payroll gap"
+              value={formatNaira(ops?.payrollDifferenceKobo ?? 0)}
+              hint={`Expected ${formatNaira(ops?.expectedPayrollKobo ?? 0)} · Received ${formatNaira(ops?.receivedPayrollKobo ?? 0)}`}
+              tone={(ops?.payrollDifferenceKobo ?? 0) > 0 ? "danger" : "success"}
+            />
+          </div>
+
+          {ops?.attentionItems?.length ? (
+            <Card>
+              <CardHeader
+                title="Action required"
+                subtitle="Exceptions that need an operator"
+              />
+              <CardBody className="divide-y divide-slate-100">
+                {ops.attentionItems.map((item) => (
+                  <Link
+                    key={item.type}
+                    href={item.href}
+                    className="flex items-center justify-between py-3 hover:bg-slate-50"
+                  >
+                    <div>
+                      <p className="font-medium text-slate-900">{item.label}</p>
+                      <p className="text-xs text-slate-500">{item.type.replaceAll("_", " ")}</p>
+                    </div>
+                    <Badge tone="warning">{String(item.count)}</Badge>
+                  </Link>
+                ))}
+              </CardBody>
+            </Card>
+          ) : (
+            <Card>
+              <CardBody>
+                <p className="text-sm text-slate-600">
+                  No financial exceptions require attention right now.
+                </p>
+              </CardBody>
+            </Card>
+          )}
+        </>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard
@@ -136,23 +205,24 @@ export default function OverviewPage() {
           hint="Suppliers & logistics partners"
         />
         <StatCard
-          label="All users"
-          value="Directory"
-          hint="Open Users to browse every account"
-          tone="success"
+          label="Write-offs pending"
+          value={String(ops?.pendingWriteOffs ?? 0)}
+          hint="Dual-approval queue"
+          tone={(ops?.pendingWriteOffs ?? 0) > 0 ? "danger" : "default"}
         />
-        <StatCard label="Write-off queue" value="" hint="See Write-Offs tab" />
+        <StatCard
+          label="Orders in flight"
+          value={String(ops?.ordersRequiringAttention ?? 0)}
+          hint="Open fulfillment pipeline"
+        />
       </div>
 
       <Card>
         <CardBody className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="font-medium text-slate-900">
-              Browse every user and their history
-            </p>
+            <p className="font-medium text-slate-900">Browse users and employees</p>
             <p className="text-sm text-slate-500">
-              Employees, employers, nutritionists, suppliers, and logistics 
-              click into orders, credit, verification, and more.
+              Open financial profiles, credit ledgers, and verification history.
             </p>
           </div>
           <Link
@@ -167,12 +237,9 @@ export default function OverviewPage() {
       <Card>
         <CardBody className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="font-medium text-slate-900">
-              Load the nutritionist account
-            </p>
+            <p className="font-medium text-slate-900">Load the nutritionist account</p>
             <p className="text-sm text-slate-500">
-              Switch into Ngozi Adeyemi&apos;s workspace to review, approve, and
-              reject employee meal plans.
+              Switch into the nutritionist workspace to review meal plans.
             </p>
           </div>
           <Button
