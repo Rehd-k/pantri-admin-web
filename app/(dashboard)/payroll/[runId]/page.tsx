@@ -9,7 +9,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Dialog } from "@/components/ui/Dialog";
 import { ErrorBanner, Spinner, SuccessBanner } from "@/components/ui/Feedback";
 import { DataTable, type Column } from "@/components/ui/Table";
-import { api, ApiError } from "@/lib/api";
+import { API_BASE_URL, api, ApiError, getToken } from "@/lib/api";
 import { formatDate, formatNaira } from "@/lib/format";
 import type { AdminPayrollRunDetail } from "@/lib/types";
 
@@ -74,6 +74,44 @@ export default function PayrollRunDetailPage() {
       setConfirm(null);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Action failed.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function downloadSignedInvoice() {
+    setBusy("invoice");
+    setError(null);
+    setSuccess(null);
+    try {
+      const token = getToken();
+      const res = await fetch(
+        `${API_BASE_URL}/admin/payroll-runs/${runId}/signed-invoice.pdf`,
+        {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        },
+      );
+      if (!res.ok) {
+        throw new Error(
+          `Invoice download failed (${res.status}). Check that you are signed in as an admin.`,
+        );
+      }
+      const blob = await res.blob();
+      const disposition = res.headers.get("Content-Disposition");
+      const match = disposition?.match(/filename="?([^"]+)"?/i);
+      const filename =
+        match?.[1] ?? `pantri-payroll-invoice-${runId}.pdf`;
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      link.click();
+      window.URL.revokeObjectURL(url);
+      setSuccess("Signed payroll invoice downloaded.");
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to download invoice.",
+      );
     } finally {
       setBusy(null);
     }
@@ -176,6 +214,13 @@ export default function PayrollRunDetailPage() {
       </div>
 
       <div className="flex flex-wrap gap-2">
+        <Button
+          variant="secondary"
+          loading={busy === "invoice"}
+          onClick={() => void downloadSignedInvoice()}
+        >
+          Download signed invoice
+        </Button>
         {["GENERATED", "EMPLOYER_REVIEW"].includes(run.status) ? (
           <Button onClick={() => setConfirm("confirm")}>Confirm run</Button>
         ) : null}
