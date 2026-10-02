@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
 import type { CompanyListItem } from "@/lib/types";
+import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { DataTable, type Column } from "@/components/ui/Table";
 import { ErrorBanner, Spinner } from "@/components/ui/Feedback";
@@ -60,15 +61,20 @@ export default function CompaniesPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Companies</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Employers appear here after they register. Manage pickup hubs per company.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-900">Companies</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Create a company and its employer login, then manage pickup hubs.
+          </p>
+        </div>
+        <Link href="/companies/new">
+          <Button>Add company</Button>
+        </Link>
       </div>
       {error ? <ErrorBanner message={error} /> : null}
       <Card>
-        <CardHeader title="Registered employers" />
+        <CardHeader title="Companies" />
         <CardBody className="p-0">
           {loading ? (
             <Spinner label="Loading companies…" />
@@ -77,7 +83,7 @@ export default function CompaniesPage() {
               columns={columns}
               rows={rows}
               keyFor={(row) => row.id}
-              emptyMessage="Employers appear here after they register."
+              emptyMessage="No companies yet. Add one to create its employer login."
             />
           )}
         </CardBody>

@@ -5,6 +5,7 @@ import type { FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { authErrorMessage } from "@/lib/api";
+import { BrandLogo } from "@/components/BrandLogo";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Input";
 import { ErrorBanner, Spinner } from "@/components/ui/Feedback";
@@ -73,11 +74,9 @@ export default function LoginPage() {
   return (
     <div className="flex h-dvh items-center justify-center overflow-y-auto bg-slate-50 px-4">
       <div className="w-full max-w-sm">
-        <div className="mb-8 flex flex-col items-center gap-2 text-center">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600 text-lg font-bold text-white">
-            P
-          </div>
-          <h1 className="text-xl font-semibold text-slate-900">Pantri Platform Admin</h1>
+        <div className="mb-8 flex flex-col items-center gap-3 text-center">
+          <BrandLogo variant="lockup" tone="color" height={40} priority />
+          <h1 className="text-xl font-semibold text-slate-900">Platform Admin</h1>
           <p className="text-sm text-slate-500">
             Admins operate the platform. Nutritionists review and activate meal plans.
           </p>

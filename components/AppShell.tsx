@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { useAuth } from "@/lib/auth";
+import { BrandLogo } from "@/components/BrandLogo";
 import { Spinner } from "@/components/ui/Feedback";
 
 type Role = "ADMIN" | "NUTRITIONIST";
@@ -332,14 +333,9 @@ function NavList({
 
 function Brand({ portalLabel }: { portalLabel: string }) {
   return (
-    <div className="flex items-center gap-2 px-2">
-      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-sm font-bold text-white">
-        P
-      </div>
-      <div>
-        <p className="text-sm font-semibold text-slate-900">Pantri</p>
-        <p className="text-xs text-slate-400">{portalLabel}</p>
-      </div>
+    <div className="px-2">
+      <BrandLogo variant="lockup" tone="color" height={28} />
+      <p className="mt-1.5 text-xs text-slate-400">{portalLabel}</p>
     </div>
   );
 }

@@ -6,6 +6,10 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Pantri  Platform Admin",
   description: "Operate Pantri's payroll-backed credit platform: settings, write-offs, and reports.",
+  icons: {
+    icon: "/favicon.png",
+    apple: "/colored_logo.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

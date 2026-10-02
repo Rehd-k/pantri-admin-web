@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import type { FormEvent } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
@@ -11,7 +12,7 @@ import { Field, Input } from "@/components/ui/Input";
 import { DataTable, type Column } from "@/components/ui/Table";
 import { api, ApiError } from "@/lib/api";
 import { formatDate, formatDateTime, formatNaira } from "@/lib/format";
-import type { CompanyEmployee, CompanyInvoice, CompanyPortal } from "@/lib/types";
+import type { CompanyAdmin, CompanyEmployee, CompanyInvoice, CompanyPortal } from "@/lib/types";
 
 function monthBounds() {
   const now = new Date();
@@ -28,7 +29,13 @@ export default function CompanyPortalPage() {
   const defaults = monthBounds();
   const [company, setCompany] = useState<CompanyPortal | null>(null);
   const [employees, setEmployees] = useState<CompanyEmployee[]>([]);
+  const [admins, setAdmins] = useState<CompanyAdmin[]>([]);
   const [invoices, setInvoices] = useState<CompanyInvoice[]>([]);
+  const [adminFirstName, setAdminFirstName] = useState("");
+  const [adminLastName, setAdminLastName] = useState("");
+  const [adminEmail, setAdminEmail] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
+  const [addingAdmin, setAddingAdmin] = useState(false);
   const [periodStart, setPeriodStart] = useState(defaults.start);
   const [periodEnd, setPeriodEnd] = useState(defaults.end);
   const [loading, setLoading] = useState(true);
@@ -40,14 +47,16 @@ export default function CompanyPortalPage() {
     setLoading(true);
     setError(null);
     try {
-      const [companyData, employeeData, invoiceData] = await Promise.all([
+      const [companyData, employeeData, invoiceData, adminData] = await Promise.all([
         api.get<CompanyPortal>(`/admin/companies/${companyId}`),
         api.get<CompanyEmployee[]>(`/admin/companies/${companyId}/employees`),
         api.get<CompanyInvoice[]>(`/admin/companies/${companyId}/invoices`),
+        api.get<CompanyAdmin[]>(`/admin/companies/${companyId}/admins`),
       ]);
       setCompany(companyData);
       setEmployees(employeeData);
       setInvoices(invoiceData);
+      setAdmins(adminData);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to load company.");
     } finally {
@@ -59,6 +68,31 @@ export default function CompanyPortalPage() {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId]);
+
+  async function addEmployerAdmin(event: FormEvent) {
+    event.preventDefault();
+    setAddingAdmin(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      await api.post(`/admin/companies/${companyId}/admins`, {
+        firstName: adminFirstName,
+        lastName: adminLastName,
+        email: adminEmail,
+        password: adminPassword,
+      });
+      setAdminFirstName("");
+      setAdminLastName("");
+      setAdminEmail("");
+      setAdminPassword("");
+      setSuccess("Employer administrator added. Share the password you set; it cannot be viewed again.");
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to add employer.");
+    } finally {
+      setAddingAdmin(false);
+    }
+  }
 
   async function generateInvoice() {
     setGenerating(true);
@@ -112,6 +146,11 @@ export default function CompanyPortalPage() {
         <div>
           <Link href="/companies" className="text-sm text-indigo-600">← Companies</Link>
           <h1 className="mt-1 text-2xl font-semibold text-slate-900">{company?.name ?? "Company"}</h1>
+          {company?.inviteCode ? (
+            <p className="mt-1 text-sm text-slate-500">
+              Invite code <span className="font-mono text-slate-700">{company.inviteCode}</span>
+            </p>
+          ) : null}
         </div>
         <Link
           href={`/companies/${companyId}/pickup-points`}
@@ -137,6 +176,64 @@ export default function CompanyPortalPage() {
           ))}
         </div>
       ) : null}
+
+      <Card>
+        <CardHeader
+          title="Employer administrators"
+          subtitle="These accounts sign in on the employer portal for this company."
+        />
+        <CardBody className="flex flex-col gap-4">
+          {admins.length ? (
+            <ul className="divide-y divide-slate-100 text-sm">
+              {admins.map((admin) => (
+                <li key={admin.id} className="flex items-center justify-between gap-3 py-2">
+                  <div>
+                    <p className="font-medium text-slate-800">
+                      {admin.firstName} {admin.lastName}
+                    </p>
+                    <p className="text-xs text-slate-500">{admin.email}</p>
+                  </div>
+                  <Badge>{admin.status}</Badge>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-slate-500">No employer logins yet.</p>
+          )}
+          <form onSubmit={addEmployerAdmin} className="grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2">
+            <Field label="First name">
+              <Input required value={adminFirstName} onChange={(event) => setAdminFirstName(event.target.value)} />
+            </Field>
+            <Field label="Last name">
+              <Input required value={adminLastName} onChange={(event) => setAdminLastName(event.target.value)} />
+            </Field>
+            <Field label="Work email">
+              <Input
+                required
+                type="email"
+                autoComplete="off"
+                value={adminEmail}
+                onChange={(event) => setAdminEmail(event.target.value)}
+              />
+            </Field>
+            <Field label="Temporary password" hint="At least 8 characters.">
+              <Input
+                required
+                type="password"
+                minLength={8}
+                autoComplete="new-password"
+                value={adminPassword}
+                onChange={(event) => setAdminPassword(event.target.value)}
+              />
+            </Field>
+            <div className="sm:col-span-2">
+              <Button type="submit" loading={addingAdmin}>
+                Add employer
+              </Button>
+            </div>
+          </form>
+        </CardBody>
+      </Card>
 
       <Card>
         <CardHeader title="Employees" />

@@ -664,6 +664,24 @@ export interface CompanyListItem {
   inviteCode: string;
 }
 
+export interface CompanyAdmin {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  status: string;
+  membershipRole: string;
+}
+
+export interface CreatedCompany {
+  id: string;
+  employerId: string;
+  name: string;
+  inviteCode: string;
+  payrollDayOfMonth: number;
+  admin: CompanyAdmin;
+}
+
 export type EmployeeVerificationStatus =
   | "INVITED"
   | "REGISTERED"
