@@ -67,6 +67,21 @@ function emptyPack(unitId = ""): PackDraft {
   };
 }
 
+function readPerfectFor(value: PerfectForItem[] | null | undefined): PerfectForItem[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    const title = String(item?.title ?? "").trim();
+    if (!title) return [];
+    return [
+      {
+        title,
+        description: String(item?.description ?? ""),
+        imageUrl: String(item?.imageUrl ?? ""),
+      },
+    ];
+  });
+}
+
 function packFromApi(pack: ProductPack): PackDraft {
   return {
     id: pack.id,
@@ -187,7 +202,7 @@ export function ProductForm({ productId }: { productId?: string }) {
           setNutrition(
             Object.entries(match.nutritionFacts).map(([key, value]) => ({ key, value })),
           );
-          setPerfectFor(match.perfectFor);
+          setPerfectFor(readPerfectFor(match.perfectFor));
           setPacks(match.packs.length > 0 ? match.packs.map(packFromApi) : [emptyPack(defaultUnit)]);
         } else {
           setPacks([emptyPack(defaultUnit)]);
@@ -216,10 +231,20 @@ export function ProductForm({ productId }: { productId?: string }) {
     return map;
   }
 
-  function perfectForItems(): PerfectForItem[] {
-    return perfectFor.filter(
-      (item) => item.title.trim() && item.description.trim() && item.imageUrl.trim(),
-    );
+  function perfectForItems(): PerfectForItem[] | null {
+    const items: PerfectForItem[] = [];
+    for (const item of perfectFor) {
+      const title = item.title.trim();
+      const description = item.description.trim();
+      const imageUrl = item.imageUrl.trim();
+      if (!title && !description && !imageUrl) continue;
+      if (!title) {
+        setError("Each Perfect for item needs a title.");
+        return null;
+      }
+      items.push({ title, description, imageUrl });
+    }
+    return items;
   }
 
   function parsePacks(): CreateProductPackInput[] | null {
@@ -267,6 +292,8 @@ export function ProductForm({ productId }: { productId?: string }) {
       setError("Add at least one pack.");
       return;
     }
+    const meals = perfectForItems();
+    if (!meals) return;
     setSaving(true);
     setError(null);
     setSuccess(null);
@@ -284,7 +311,7 @@ export function ProductForm({ productId }: { productId?: string }) {
       isVerified: form.isVerified,
       bulkAllocationClaimedPercent: bulk,
       nutritionFacts: nutritionMap(),
-      perfectFor: perfectForItems(),
+      perfectFor: meals,
       tags: form.tags
         .split(",")
         .map((tag) => tag.trim())
@@ -295,7 +322,16 @@ export function ProductForm({ productId }: { productId?: string }) {
     try {
       if (isEdit && productId) {
         const payload: UpdateProductInput = identity;
-        await api.patch<MarketplaceProduct>(`/admin/marketplace/products/${productId}`, payload);
+        const saved = await api.patch<MarketplaceProduct>(
+          `/admin/marketplace/products/${productId}`,
+          payload,
+        );
+        const storedMeals = readPerfectFor(saved.perfectFor);
+        if (meals.length > 0 && storedMeals.length === 0) {
+          setError("Perfect for items were not saved.");
+          return;
+        }
+        setPerfectFor(storedMeals);
         for (let index = 0; index < packs.length; index += 1) {
           const draft = packs[index];
           const pack = packPayload[index];
@@ -309,7 +345,13 @@ export function ProductForm({ productId }: { productId?: string }) {
         setSuccess("Product and packs updated.");
       } else {
         const payload: CreateProductInput = { ...identity, packs: packPayload };
-        await api.post<MarketplaceProduct>("/admin/marketplace/products", payload);
+        const created = await api.post<MarketplaceProduct>("/admin/marketplace/products", payload);
+        const storedMeals = readPerfectFor(created.perfectFor);
+        if (meals.length > 0 && storedMeals.length === 0) {
+          setError("The product was created, but Perfect for items were not stored.");
+          router.push(`/marketplace/products/${created.id}`);
+          return;
+        }
         router.push("/marketplace/products");
       }
     } catch (err) {
@@ -734,6 +776,7 @@ export function ProductForm({ productId }: { productId?: string }) {
         <Card>
           <CardHeader
             title="Perfect for"
+            subtitle="A title is enough to save an item. Description and photo are optional."
             action={
               <Button
                 type="button"

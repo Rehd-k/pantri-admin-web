@@ -283,6 +283,20 @@ export interface MediaUpload {
   thumbnailUrl: string | null;
 }
 
+export interface MediaLibraryItem {
+  fileId: string;
+  name: string;
+  url: string;
+  thumbnailUrl: string | null;
+}
+
+export interface MediaLibraryResponse {
+  items: MediaLibraryItem[];
+  skip: number;
+  limit: number;
+  hasMore: boolean;
+}
+
 export interface MarketplaceCategory {
   id: string;
   slug: string;

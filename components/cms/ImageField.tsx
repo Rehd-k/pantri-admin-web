@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import type { MediaUpload } from "@/lib/types";
+import { ImageLibraryPicker } from "@/components/cms/ImageLibraryPicker";
 import { Field, Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 
@@ -20,6 +21,7 @@ export function ImageField({
   required?: boolean;
 }) {
   const [uploading, setUploading] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -40,41 +42,55 @@ export function ImageField({
   }
 
   return (
-    <Field label={label} hint={hint}>
-      <div className="flex flex-col gap-2">
-        {value ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={value}
-            alt=""
-            className="h-24 w-24 rounded-lg border border-slate-200 object-cover"
+    <>
+      <Field label={label} hint={hint}>
+        <div className="flex flex-col gap-2">
+          {value ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={value}
+              alt=""
+              className="h-24 w-24 rounded-lg border border-slate-200 object-cover"
+            />
+          ) : null}
+          <Input
+            required={required}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="https://…"
           />
-        ) : null}
-        <Input
-          required={required}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="https://…"
-        />
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="secondary"
-            loading={uploading}
-            onClick={() => fileRef.current?.click()}
-          >
-            Upload image
-          </Button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => void handleFile(e.target.files?.[0])}
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              loading={uploading}
+              onClick={() => fileRef.current?.click()}
+            >
+              Upload image
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => setLibraryOpen(true)}>
+              Choose existing
+            </Button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => void handleFile(e.target.files?.[0])}
+            />
+          </div>
+          {error ? <span className="text-xs text-red-600">{error}</span> : null}
         </div>
-        {error ? <span className="text-xs text-red-600">{error}</span> : null}
-      </div>
-    </Field>
+      </Field>
+      <ImageLibraryPicker
+        open={libraryOpen}
+        selectedUrl={value}
+        onClose={() => setLibraryOpen(false)}
+        onSelect={(url) => {
+          onChange(url);
+          setLibraryOpen(false);
+        }}
+      />
+    </>
   );
 }
