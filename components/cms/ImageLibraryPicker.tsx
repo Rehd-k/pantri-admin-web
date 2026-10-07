@@ -5,19 +5,26 @@ import { api, ApiError } from "@/lib/api";
 import type { MediaLibraryItem, MediaLibraryResponse } from "@/lib/types";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { Dialog } from "@/components/ui/Dialog";
 
 const PAGE_SIZE = 24;
+
+function isUploadedFile(item: MediaLibraryItem): boolean {
+  return /^[A-Za-z0-9_-]+$/.test(item.fileId);
+}
 
 export function ImageLibraryPicker({
   open,
   selectedUrl,
   onClose,
   onSelect,
+  onDeleted,
 }: {
   open: boolean;
   selectedUrl: string;
   onClose: () => void;
   onSelect: (url: string) => void;
+  onDeleted?: (url: string) => void;
 }) {
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
@@ -25,6 +32,9 @@ export function ImageLibraryPicker({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<MediaLibraryItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const skipRef = useRef(0);
@@ -134,6 +144,24 @@ export function ImageLibraryPicker({
     }
   }
 
+  async function confirmDelete() {
+    if (!pendingDelete) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await api.delete(`/media/files/${encodeURIComponent(pendingDelete.fileId)}`);
+      const removedUrl = pendingDelete.url;
+      seenRef.current.delete(removedUrl);
+      setItems((prev) => prev.filter((item) => item.url !== removedUrl));
+      onDeleted?.(removedUrl);
+      setPendingDelete(null);
+    } catch (err) {
+      setDeleteError(err instanceof ApiError ? err.message : "Could not delete image.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   if (!open) return null;
 
   return (
@@ -156,7 +184,7 @@ export function ImageLibraryPicker({
               Choose an existing photo
             </h2>
             <p className="mt-1 text-sm text-slate-500">
-              Scroll to load more. Selecting a photo reuses its URL, so you do not upload it again.
+              Scroll to load more. Selecting a photo reuses its URL. Uploaded photos can be deleted when they are no longer used.
             </p>
           </div>
           <Button type="button" variant="ghost" onClick={onClose}>
@@ -181,28 +209,45 @@ export function ImageLibraryPicker({
             <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">
               {items.map((item) => {
                 const selected = item.url === selectedUrl;
+                const canDelete = isUploadedFile(item);
                 return (
-                  <button
+                  <div
                     key={item.url}
-                    type="button"
-                    onClick={() => onSelect(item.url)}
-                    className={`overflow-hidden rounded-lg border text-left transition-colors ${
+                    className={`overflow-hidden rounded-lg border transition-colors ${
                       selected
                         ? "border-indigo-500 ring-2 ring-indigo-500"
                         : "border-slate-200 hover:border-indigo-300"
                     }`}
                     title={item.name}
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={item.thumbnailUrl || item.url}
-                      alt={item.name}
-                      loading="lazy"
-                      decoding="async"
-                      className="aspect-square w-full object-cover"
-                    />
-                    <span className="block truncate px-2 py-1.5 text-xs text-slate-600">{item.name}</span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => onSelect(item.url)}
+                      className="block w-full text-left"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={item.thumbnailUrl || item.url}
+                        alt={item.name}
+                        loading="lazy"
+                        decoding="async"
+                        className="aspect-square w-full object-cover"
+                      />
+                      <span className="block truncate px-2 py-1.5 text-xs text-slate-600">{item.name}</span>
+                    </button>
+                    {canDelete ? (
+                      <button
+                        type="button"
+                        className="w-full border-t border-slate-100 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+                        onClick={() => {
+                          setDeleteError(null);
+                          setPendingDelete(item);
+                        }}
+                      >
+                        Delete
+                      </button>
+                    ) : null}
+                  </div>
                 );
               })}
             </div>
@@ -211,6 +256,26 @@ export function ImageLibraryPicker({
           {loading ? <p className="pb-2 text-center text-sm text-slate-500">Loading photos…</p> : null}
         </div>
       </div>
+      <Dialog
+        open={pendingDelete !== null}
+        title="Delete this uploaded image?"
+        description={
+          pendingDelete
+            ? `${pendingDelete.name} will be removed from the library. Images still used on a product, category, package, or post cannot be deleted.`
+            : undefined
+        }
+        confirmLabel="Delete image"
+        confirmVariant="danger"
+        loading={deleting}
+        onConfirm={() => void confirmDelete()}
+        onClose={() => {
+          if (deleting) return;
+          setPendingDelete(null);
+          setDeleteError(null);
+        }}
+      >
+        {deleteError ? <p className="text-sm text-red-600">{deleteError}</p> : null}
+      </Dialog>
     </div>
   );
 }

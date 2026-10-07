@@ -59,10 +59,11 @@ export function Dialog({
         ) : null}
         {children ? <div className="mt-4">{children}</div> : null}
         <div className="mt-6 flex justify-end gap-2">
-          <Button variant="secondary" onClick={onClose} disabled={loading}>
+          <Button type="button" variant="secondary" onClick={onClose} disabled={loading}>
             {cancelLabel}
           </Button>
           <Button
+            type="button"
             variant={confirmVariant}
             loading={loading}
             onClick={onConfirm}

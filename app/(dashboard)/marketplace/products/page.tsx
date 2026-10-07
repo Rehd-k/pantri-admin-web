@@ -81,6 +81,7 @@ function ProductsCatalog() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
   const hasLoaded = useRef(false);
 
   const updateParams = useCallback(
@@ -229,7 +230,7 @@ function ProductsCatalog() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [qParam, categoryId, subcategoryId, status, verified, packs, originParam, minPriceParam, maxPriceParam, sortKey, page, take]);
+  }, [qParam, categoryId, subcategoryId, status, verified, packs, originParam, minPriceParam, maxPriceParam, sortKey, page, take, reloadToken]);
 
   const pageCount = Math.max(1, Math.ceil(total / take));
   const from = total === 0 ? 0 : (page - 1) * take + 1;
@@ -443,9 +444,16 @@ function ProductsCatalog() {
               }
             />
           ) : view === "table" ? (
-            <ProductTable products={items} />
+            <ProductTable
+              products={items}
+              onDeleted={() => setReloadToken((token) => token + 1)}
+            />
           ) : (
-            <ProductCards products={items} compact={view === "grid"} />
+            <ProductCards
+              products={items}
+              compact={view === "grid"}
+              onDeleted={() => setReloadToken((token) => token + 1)}
+            />
           )}
         </div>
         <PaginationBar

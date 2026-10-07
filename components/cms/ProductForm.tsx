@@ -24,6 +24,7 @@ import { ImageField } from "@/components/cms/ImageField";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Field, Input, Select, Textarea } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { Dialog } from "@/components/ui/Dialog";
 import { ErrorBanner, Spinner, SuccessBanner } from "@/components/ui/Feedback";
 
 interface NutritionRow {
@@ -102,6 +103,8 @@ export function ProductForm({ productId }: { productId?: string }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deactivating, setDeactivating] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [categories, setCategories] = useState<MarketplaceCategory[]>([]);
@@ -372,6 +375,21 @@ export function ProductForm({ productId }: { productId?: string }) {
       setError(err instanceof ApiError ? err.message : "Failed to deactivate product.");
     } finally {
       setDeactivating(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!productId) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      await api.delete(`/admin/marketplace/products/${productId}`);
+      router.push("/marketplace/products");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to delete product.");
+      setDeleteOpen(false);
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -839,15 +857,30 @@ export function ProductForm({ productId }: { productId?: string }) {
 
         <div className="flex justify-end gap-2">
           {isEdit ? (
-            <Button type="button" variant="danger" loading={deactivating} onClick={() => void handleDeactivate()}>
-              Deactivate
-            </Button>
+            <>
+              <Button type="button" variant="danger" loading={deleting} onClick={() => setDeleteOpen(true)}>
+                Delete
+              </Button>
+              <Button type="button" variant="secondary" loading={deactivating} onClick={() => void handleDeactivate()}>
+                Deactivate
+              </Button>
+            </>
           ) : null}
           <Button type="submit" loading={saving}>
             {isEdit ? "Save changes" : "Create product"}
           </Button>
         </div>
       </form>
+      <Dialog
+        open={deleteOpen}
+        title="Delete this product?"
+        description="This removes the product and its packs. Products used in a package or recipe cannot be deleted."
+        confirmLabel="Delete product"
+        confirmVariant="danger"
+        loading={deleting}
+        onConfirm={() => void handleDelete()}
+        onClose={() => setDeleteOpen(false)}
+      />
     </div>
   );
 }

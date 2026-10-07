@@ -90,6 +90,9 @@ export function ImageField({
           onChange(url);
           setLibraryOpen(false);
         }}
+        onDeleted={(url) => {
+          if (url === value) onChange("");
+        }}
       />
     </>
   );
